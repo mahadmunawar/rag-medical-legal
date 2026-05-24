@@ -1,0 +1,616 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "public": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -3360,
+        2000
+      ],
+      "id": "b1de8a95-affa-4748-ad3e-0a6099b9e263",
+      "name": "When chat message received",
+      "webhookId": "73cd7c61-f890-4a3d-9c99-a0c7de3a2178"
+    },
+    {
+      "parameters": {
+        "jsCode": "let out = $input.first().json.output || $input.first().json.text || $input.first().json.answer || $input.first().json.content || '';\nconst blocked = ['ignore all instructions', 'jailbreak', 'dan mode','ignore all instructions', 'system override', 'reset conversation'];\nif (blocked.some(w => out.toLowerCase().includes(w))) {\n  out = 'I am sorry, I cannot fulfill this request.';\n} else {\n  out = out.replace(/^[\"']|[\"']$/g, '');\n  out = out.replace(/(\\*\\*|__|\\*|_|#)/g, '');\n  out = out.trim();\n}\nreturn [{ json: { output: out } }];"
+      },
+      "id": "9e5e48d0-a6f9-4250-bdef-8d60384bc3b3",
+      "name": "Output Filter1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1088,
+        2000
+      ]
+    },
+    {
+      "parameters": {
+        "model": "llama-3.3-70b-versatile",
+        "options": {}
+      },
+      "id": "3990d55b-a50d-41bd-8a7f-47c518561fce",
+      "name": "Groq Chat Model Legal1",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        -1376,
+        2112
+      ],
+      "credentials": {
+        "groqApi": {
+          "id": "lmTvQiF6n6brsVpm",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a legal information assistant.\n\nContext:\n{{ $json.context_text }}\n\nQuestion: {{ $json.clean_query }}\n\nStrict Rules:\n1. Provide general legal information only. Do NOT give legal advice.\n2. Ask for jurisdiction if missing.\n3. If the Context is empty, answer from general knowledge but stay extremely cautious and do NOT cite any sources.\n4. Crucial: You MUST end your response with exactly: \"This is not legal advice.\"\n5. Cite source filenames if context is present (e.g. [Source: filename.pdf]), otherwise do not cite.",
+        "options": {}
+      },
+      "id": "a15e7907-84bf-47a7-8b1e-afdb82681b64",
+      "name": "Basic LLM Chain Legal1",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -1440,
+        1888
+      ]
+    },
+    {
+      "parameters": {
+        "model": "llama-3.3-70b-versatile",
+        "options": {}
+      },
+      "id": "005a07ed-68e6-4f6a-aa5c-c471c52c7e4c",
+      "name": "Groq Chat Model Medical1",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        -1440,
+        1712
+      ],
+      "credentials": {
+        "groqApi": {
+          "id": "lmTvQiF6n6brsVpm",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a medical information assistant.\n\nContext:\n{{ $json.context_text }}\n\nQuestion: {{ $json.clean_query }}\n\nStrict Rules:\n1. Use bullet points for readability.\n2. Do NOT diagnose or prescribe.\n3. If the Context is empty, answer from general knowledge but stay extremely cautious and do NOT cite any sources.\n4. Crucial: You MUST end your response with exactly: \"This is not medical advice.\"\n5. Cite source filenames if context is present (e.g. [Source: filename.csv]), otherwise do not cite.",
+        "options": {}
+      },
+      "id": "4dbccd5f-2d2d-4764-b236-1ebd73c6b5f8",
+      "name": "Basic LLM Chain Medical1",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -1440,
+        1488
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json.chatInput || '';\nconst lower = raw.toLowerCase();\nconst blocked = ['ignore previous','act as system','override','forget instructions'];\nlet clean = lower;\nblocked.forEach(w => { clean = clean.split(w).join(''); });\nreturn [{ json: { clean_query: clean.trim(), original: raw } }];"
+      },
+      "id": "09e9d1cd-8d40-45f9-a827-e4f30f85a159",
+      "name": "Sanitize Input1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3136,
+        2000
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const results = $input.first().json.result || [];\n\n// 1. Filter out poor matches (score less than 0.3)\nconst relevantResults = results.filter(item => (item.score || 1) >= 0.3);\n\n// 2. Format with dynamic source citations\nconst context_text = relevantResults.map((item, index) => {\n  const source = item.metadata?.source || item.source || 'Document ' + (index + 1);\n  return `[Source: ${source}] ${item.text}`;\n}).join('\\n');\n\nconst clean_query = $('Sanitize Input1').item.json.clean_query;\nreturn [{ json: { context_text, clean_query } }];\n"
+      },
+      "id": "1bcb0279-278d-4208-865d-f41ba4e62919",
+      "name": "Prepare Legal Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1664,
+        2000
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const results = $input.first().json.result || [];\n\n// 1. Filter out poor matches (score less than 0.3)\nconst relevantResults = results.filter(item => (item.score || 1) >= 0.3);\n\n// 2. Format with dynamic source citations\nconst context_text = relevantResults.map((item, index) => {\n  const source = item.metadata?.source || item.source || 'Document ' + (index + 1);\n  return `[Source: ${source}] ${item.text}`;\n}).join('\\n');\n\nconst clean_query = $('Sanitize Input1').item.json.clean_query;\nreturn [{ json: { context_text, clean_query } }];\n"
+      },
+      "id": "3c56635f-b183-4435-aeff-69910b2ce954",
+      "name": "Prepare Medical Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1664,
+        1600
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/rag",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ query: $json.clean_query }) }}",
+        "options": {}
+      },
+      "id": "bdd7a509-ede9-4db5-9ef2-62bc0368f4f5",
+      "name": "HTTP Request Legal",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -1888,
+        2000
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/rag",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ query: $json.clean_query }) }}",
+        "options": {}
+      },
+      "id": "793f8293-903b-4e58-b570-ff8f4cfc15cf",
+      "name": "HTTP Request Medical",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -1888,
+        1600
+      ]
+    },
+    {
+      "parameters": {
+        "model": "llama-3.3-70b-versatile",
+        "options": {}
+      },
+      "id": "d8278f8b-1f10-4d7c-a57e-d11b628db959",
+      "name": "Groq Chat Model General1",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        -1376,
+        2624
+      ],
+      "credentials": {
+        "groqApi": {
+          "id": "lmTvQiF6n6brsVpm",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/rag",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ query: $json.clean_query }) }}",
+        "options": {}
+      },
+      "id": "8b05ef11-2807-4e8a-8b06-72438ac74a88",
+      "name": "HTTP Request General",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -1888,
+        2400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const results = $input.first().json.result || [];\n\n// 1. Filter out poor matches (score less than 0.3)\nconst relevantResults = results.filter(item => (item.score || 1) >= 0.3);\n\n// 2. Format with dynamic source citations\nconst context_text = relevantResults.map((item, index) => {\n  const source = item.metadata?.source || item.source || 'Document ' + (index + 1);\n  return `[Source: ${source}] ${item.text}`;\n}).join('\\n');\n\nconst clean_query = $('Sanitize Input1').item.json.clean_query;\nreturn [{ json: { context_text, clean_query } }];\n"
+      },
+      "id": "2102573f-2dd5-4d37-852b-eeb95d44c1cf",
+      "name": "Prepare General Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1664,
+        2400
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a helpful, conversational AI assistant.\n\nRules:\n1. If the user says \"hello\" or makes small talk, just greet them naturally.\n2. If the user asks a question, answer it directly and simply using ONLY the provided context.\n3. Do not over-explain. Do NOT use sections, headings, or words like \"Introduction\", \"Analysis\", or \"Conclusion\".\n4. Just give the clean answer.\n\n- At the end of your sentences, cite the actual source filename found in the brackets before the text (e.g. [Source: file_name.csv]). \n- Crucial: If the Context is empty or no source brackets are provided, do NOT cite any source at all. Just answer directly.\n\nContext:\n{{ $json.context_text }}\n\nUser: {{ $('Sanitize Input1').item.json.clean_query }}",
+        "options": {}
+      },
+      "id": "d9ba1488-3ce8-426e-8c55-92f89bc94c3e",
+      "name": "Basic LLM Chain General1",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -1440,
+        2400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const optimized_query = $input.first().json.text || $input.first().json.answer || $input.first().json.content || '';\nreturn [{ json: { clean_query: optimized_query.trim() } }];"
+      },
+      "id": "94a66732-cb9f-4d85-94e4-2c5d9f633357",
+      "name": "Extract Query",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2560,
+        2000
+      ]
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        -528,
+        1856
+      ],
+      "id": "88b56ec4-cbde-481b-8de5-dec4508779fc",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.clean_query }}",
+              "rightValue": "\\blaw\\b|\\bcontract\\b|\\bsue\\b|\\bcourt\\b|\\battorney\\b|\\blawyer\\b|\\blitigation\\b|\\bstatute\\b|\\bregulation\\b",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "4eedc87e-c273-487c-bbc9-9a870ca3a90e",
+      "name": "Legal Rule Check1",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -2112,
+        2192
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.clean_query }}",
+              "rightValue": "\\bcancer\\b|\\btumor\\b|\\boncology\\b|\\bchemotherapy\\b|\\bradiation\\b|\\bbiopsy\\b|\\bmetastasis\\b|\\bcarcinoma\\b|\\bmedical\\b",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "d8bc0f96-40a1-4569-81c5-1f2954a953a8",
+      "name": "Rule Classifier1",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -2336,
+        2000
+      ]
+    },
+    {
+      "parameters": {
+        "model": "llama-3.3-70b-versatile",
+        "options": {}
+      },
+      "id": "23b56e75-2ba7-484e-9bff-1d71a2304c90",
+      "name": "Groq LLaMA 3 (Optimizer)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        -2848,
+        2224
+      ],
+      "credentials": {
+        "groqApi": {
+          "id": "lmTvQiF6n6brsVpm",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an expert search engine optimizer. Your job is to take the user's question, correct any typos, and output a concise search query containing only the core search keywords and synonyms. Output ONLY the keywords. Do not include quotes, explanations, or introductory text.",
+        "batching": {}
+      },
+      "id": "8776202d-f447-4827-b811-08a7cbd41200",
+      "name": "Optimize Query",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        -2912,
+        2000
+      ]
+    }
+  ],
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "Sanitize Input1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model Legal1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain Legal1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain Legal1": {
+      "main": [
+        [
+          {
+            "node": "Output Filter1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model Medical1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain Medical1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain Medical1": {
+      "main": [
+        [
+          {
+            "node": "Output Filter1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sanitize Input1": {
+      "main": [
+        [
+          {
+            "node": "Optimize Query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Legal Context": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain Legal1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Medical Context": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain Medical1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request Legal": {
+      "main": [
+        [
+          {
+            "node": "Prepare Legal Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request Medical": {
+      "main": [
+        [
+          {
+            "node": "Prepare Medical Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model General1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain General1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request General": {
+      "main": [
+        [
+          {
+            "node": "Prepare General Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare General Context": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain General1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain General1": {
+      "main": [
+        [
+          {
+            "node": "Output Filter1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Query": {
+      "main": [
+        [
+          {
+            "node": "Rule Classifier1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "Basic LLM Chain Medical1",
+            "type": "ai_memory",
+            "index": 0
+          },
+          {
+            "node": "Basic LLM Chain General1",
+            "type": "ai_memory",
+            "index": 0
+          },
+          {
+            "node": "Basic LLM Chain Legal1",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Legal Rule Check1": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request Legal",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP Request General",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rule Classifier1": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request Medical",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Legal Rule Check1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq LLaMA 3 (Optimizer)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Optimize Query",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Optimize Query": {
+      "main": [
+        [
+          {
+            "node": "Extract Query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "7f52418fd69fda112c5143e7c1f10f0327c646361721b96f6e7a2f7e374085c5"
+  }
+}
